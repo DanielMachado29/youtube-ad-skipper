@@ -19,7 +19,7 @@ todos:
     status: completed
   - id: playwright-validation
     content: Usar Playwright MCP para validar seletores no DOM do YouTube e criar página de teste local (test/fixtures/player-mock.html) para simular estado de anúncio
-    status: pending
+    status: completed
 isProject: false
 ---
 

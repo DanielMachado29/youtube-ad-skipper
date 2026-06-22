@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Player Mock — Ad Skipper Test Fixture</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #0f0f0f;
+      color: #f1f1f1;
+    }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    p { color: #aaa; margin: 0 0 20px; font-size: 0.875rem; }
+    .layout { display: grid; gap: 24px; max-width: 960px; }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    button {
+      background: #272727;
+      border: 1px solid #3f3f3f;
+      color: #f1f1f1;
+      padding: 8px 14px;
+      border-radius: 18px;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    button:hover { background: #3f3f3f; }
+    button.active { background: #cc0000; border-color: #ff4444; }
+    .player-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 854px;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .html5-video-player {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      background: #111;
+    }
+    .html5-video-player.ad-showing::after {
+      content: 'AD PLAYING';
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: #f9a825;
+      color: #000;
+      font-weight: 700;
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 4px;
+      z-index: 2;
+    }
+    .html5-main-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .ytp-skip-ad-button,
+    .ytp-ad-skip-button-modern {
+      position: absolute;
+      bottom: 48px;
+      right: 12px;
+      z-index: 3;
+      background: rgba(0, 0, 0, 0.8);
+      border: 1px solid #fff;
+      color: #fff;
+      padding: 10px 16px;
+      border-radius: 2px;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .ytp-skip-ad-button[hidden],
+    .ytp-ad-skip-button-modern[hidden] {
+      display: none;
+    }
+    .status {
+      background: #181818;
+      border: 1px solid #303030;
+      border-radius: 8px;
+      padding: 16px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.8125rem;
+      line-height: 1.6;
+    }
+    .status dt { color: #888; display: inline; }
+    .status dd { display: inline; margin: 0 16px 0 4px; }
+    .log {
+      margin-top: 12px;
+      max-height: 120px;
+      overflow-y: auto;
+      color: #7dd3fc;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div>
+      <h1>YouTube Player Mock</h1>
+      <p>Minimal DOM fixture for YouTube Ad Skipper. Toggle ad state and verify detection/skip behavior.</p>
+    </div>
+
+    <div class="controls">
+      <button type="button" id="toggle-ad">Toggle ad-showing</button>
+      <button type="button" id="toggle-skip">Toggle skip button</button>
+      <button type="button" id="reset-video">Reset video</button>
+      <button type="button" id="run-detect">Run detectAd()</button>
+      <button type="button" id="run-skip">Run skipAd()</button>
+    </div>
+
+    <div class="player-wrap">
+      <div id="movie_player" class="html5-video-player">
+        <video class="html5-main-video" src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" controls muted loop></video>
+        <button type="button" class="ytp-skip-ad-button" hidden>Skip Ad</button>
+      </div>
+    </div>
+
+    <dl class="status" id="status">
+      <dt>ad-showing:</dt><dd id="stat-ad-showing">false</dd>
+      <dt>getAdState():</dt><dd id="stat-ad-state">-1</dd>
+      <dt>skip visible:</dt><dd id="stat-skip-visible">false</dd>
+      <dt>playbackRate:</dt><dd id="stat-rate">1</dd>
+      <dt>currentTime:</dt><dd id="stat-time">0</dd>
+      <dt>skip clicks:</dt><dd id="stat-clicks">0</dd>
+    </dl>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    const SELECTORS = {
+      player: '.html5-video-player',
+      moviePlayer: '#movie_player',
+      skipButton: '.ytp-skip-ad-button, .ytp-ad-skip-button-modern',
+      video: '.html5-main-video',
+    };
+    const PLAYBACK_RATE = 16;
+
+    let mockAdState = -1;
+    let skipClickCount = 0;
+
+    const moviePlayer = document.getElementById('movie_player');
+    const player = document.querySelector(SELECTORS.player);
+    const skipBtn = document.querySelector(SELECTORS.skipButton);
+    const video = document.querySelector(SELECTORS.video);
+
+    moviePlayer.getAdState = function () {
+      return mockAdState;
+    };
+
+    function log(message) {
+      const el = document.getElementById('log');
+      const line = document.createElement('div');
+      line.textContent = new Date().toISOString().slice(11, 19) + ' ' + message;
+      el.prepend(line);
+    }
+
+    function detectAd() {
+      const p = document.querySelector(SELECTORS.player);
+      const mp = document.querySelector(SELECTORS.moviePlayer);
+      const adState = mp?.getAdState?.();
+      return p?.classList.contains('ad-showing') || adState === 1;
+    }
+
+    function isSkipButtonVisible(button) {
+      return button && button.offsetParent !== null;
+    }
+
+    function skipAd() {
+      const btn = document.querySelector(SELECTORS.skipButton);
+      if (isSkipButtonVisible(btn)) {
+        btn.click();
+        return 'clicked-skip-button';
+      }
+
+      const v = document.querySelector(SELECTORS.video);
+      if (!v) return 'no-video';
+
+      v.playbackRate = PLAYBACK_RATE;
+      if (v.duration && isFinite(v.duration) && v.duration > 0) {
+        v.currentTime = v.duration - 0.1;
+      }
+      return 'accelerated-and-seeked';
+    }
+
+    function updateStatus() {
+      document.getElementById('stat-ad-showing').textContent = String(player.classList.contains('ad-showing'));
+      document.getElementById('stat-ad-state').textContent = String(mockAdState);
+      document.getElementById('stat-skip-visible').textContent = String(isSkipButtonVisible(skipBtn));
+      document.getElementById('stat-rate').textContent = String(video.playbackRate);
+      document.getElementById('stat-time').textContent = video.currentTime.toFixed(2);
+      document.getElementById('stat-clicks').textContent = String(skipClickCount);
+    }
+
+    document.getElementById('toggle-ad').addEventListener('click', () => {
+      const active = player.classList.toggle('ad-showing');
+      mockAdState = active ? 1 : -1;
+      document.getElementById('toggle-ad').classList.toggle('active', active);
+      log('ad-showing=' + active + ', getAdState()=' + mockAdState);
+      updateStatus();
+    });
+
+    document.getElementById('toggle-skip').addEventListener('click', () => {
+      const hidden = skipBtn.hasAttribute('hidden');
+      if (hidden) {
+        skipBtn.removeAttribute('hidden');
+      } else {
+        skipBtn.setAttribute('hidden', '');
+      }
+      document.getElementById('toggle-skip').classList.toggle('active', !skipBtn.hasAttribute('hidden'));
+      log('skip button visible=' + isSkipButtonVisible(skipBtn));
+      updateStatus();
+    });
+
+    skipBtn.addEventListener('click', () => {
+      skipClickCount += 1;
+      player.classList.remove('ad-showing');
+      mockAdState = -1;
+      skipBtn.setAttribute('hidden', '');
+      log('skip button clicked (simulated ad end)');
+      updateStatus();
+    });
+
+    document.getElementById('reset-video').addEventListener('click', () => {
+      player.classList.remove('ad-showing');
+      mockAdState = -1;
+      skipBtn.setAttribute('hidden', '');
+      video.playbackRate = 1;
+      video.currentTime = 0;
+      skipClickCount = 0;
+      document.getElementById('toggle-ad').classList.remove('active');
+      document.getElementById('toggle-skip').classList.remove('active');
+      log('reset');
+      updateStatus();
+    });
+
+    document.getElementById('run-detect').addEventListener('click', () => {
+      const result = detectAd();
+      log('detectAd() => ' + result);
+      updateStatus();
+    });
+
+    document.getElementById('run-skip').addEventListener('click', () => {
+      const result = skipAd();
+      log('skipAd() => ' + result);
+      updateStatus();
+    });
+
+    video.addEventListener('timeupdate', updateStatus);
+    video.addEventListener('loadedmetadata', updateStatus);
+
+    window.__mockPlayer = {
+      SELECTORS,
+      detectAd,
+      skipAd,
+      setAdActive(active) {
+        if (active) {
+          player.classList.add('ad-showing');
+          mockAdState = 1;
+        } else {
+          player.classList.remove('ad-showing');
+          mockAdState = -1;
+        }
+        updateStatus();
+      },
+      showSkipButton(show) {
+        if (show) skipBtn.removeAttribute('hidden');
+        else skipBtn.setAttribute('hidden', '');
+        updateStatus();
+      },
+      getState() {
+        return {
+          adShowing: player.classList.contains('ad-showing'),
+          adState: mockAdState,
+          skipVisible: isSkipButtonVisible(skipBtn),
+          playbackRate: video.playbackRate,
+          currentTime: video.currentTime,
+          skipClickCount,
+        };
+      },
+    };
+
+    updateStatus();
+  </script>
+</body>
+</html>

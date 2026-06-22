@@ -14,23 +14,59 @@
   }
 
   function isSkipButtonVisible(button) {
-    return button && button.offsetParent !== null;
+    if (!button) return false;
+    const style = window.getComputedStyle(button);
+    const rect = button.getBoundingClientRect();
+    return (
+      style.display !== 'none' &&
+      style.visibility !== 'hidden' &&
+      parseFloat(style.opacity) > 0 &&
+      rect.width > 0 &&
+      rect.height > 0
+    );
+  }
+
+  function cancelAdPlayback() {
+    const player = document.querySelector(SELECTORS.moviePlayer);
+    if (!player || typeof player.cancelPlayback !== 'function') return false;
+    try {
+      player.cancelPlayback();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function seekToAdEnd(video, player) {
+    const duration = video.duration;
+    if (!duration || !isFinite(duration) || duration <= 0) return;
+
+    if (typeof player?.seekTo === 'function') {
+      player.seekTo(duration, true);
+    } else {
+      video.currentTime = duration - 0.1;
+    }
   }
 
   function skipAd() {
+    // YouTube ignores programmatic .click() from extensions (isTrusted check).
+    // cancelPlayback() on the internal player API is the reliable skip path.
+    if (cancelAdPlayback()) return;
+
     const skipBtn = document.querySelector(SELECTORS.skipButton);
     if (isSkipButtonVisible(skipBtn)) {
       skipBtn.click();
+      cancelAdPlayback();
       return;
     }
 
     const video = document.querySelector(SELECTORS.video);
     if (!video) return;
 
+    const player = document.querySelector(SELECTORS.moviePlayer);
     video.playbackRate = PLAYBACK_RATE;
-    if (video.duration && isFinite(video.duration) && video.duration > 0) {
-      video.currentTime = video.duration - 0.1;
-    }
+    seekToAdEnd(video, player);
+    cancelAdPlayback();
   }
 
   function restorePlaybackRate() {
