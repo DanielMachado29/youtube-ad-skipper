@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Ad Skipper",
+  "version": "1.0.0",
+  "description": "Pula anúncios do YouTube automaticamente",
+  "permissions": [],
+  "host_permissions": ["*://*.youtube.com/*"],
+  "content_scripts": [{
+    "matches": ["*://*.youtube.com/*"],
+    "js": ["src/constants.js", "src/content.js"],
+    "run_at": "document_idle"
+  }],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
