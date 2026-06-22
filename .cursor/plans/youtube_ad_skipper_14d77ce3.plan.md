@@ -4,21 +4,21 @@ overview: "Implementar uma extensão Chrome (Manifest V3) do zero que injeta um 
 todos:
   - id: manifest
     content: Criar manifest.json (MV3) com content_scripts e host_permissions para youtube.com
-    status: pending
+    status: completed
   - id: constants
     content: Criar src/constants.js com seletores CSS, intervalos e playback rate
-    status: pending
+    status: completed
   - id: content-script
     content: "Implementar src/content.js: detecção (ad-showing + getAdState), skip em camadas, SPA navigation, restore playbackRate"
-    status: pending
+    status: completed
   - id: icons
     content: Adicionar ícones 16/48/128px em icons/
-    status: pending
+    status: completed
   - id: readme
     content: Atualizar README com instalação, funcionamento e limitações
-    status: pending
+    status: completed
   - id: playwright-validation
-    content: "Usar Playwright MCP para validar seletores no DOM do YouTube e criar página de teste local (test/fixtures/player-mock.html) para simular estado de anúncio"
+    content: Usar Playwright MCP para validar seletores no DOM do YouTube e criar página de teste local (test/fixtures/player-mock.html) para simular estado de anúncio
     status: pending
 isProject: false
 ---
