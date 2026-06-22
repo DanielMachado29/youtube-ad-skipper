@@ -6,18 +6,12 @@
   let pollTimerId = null;
   let observer = null;
   let waitTimerId = null;
+  let adGraceUntil = 0;
 
-  function detectAd() {
-    const player = document.querySelector(SELECTORS.player);
-    const moviePlayer = document.querySelector(SELECTORS.moviePlayer);
-    const adState = moviePlayer?.getAdState?.();
-    return player?.classList.contains('ad-showing') || adState === 1;
-  }
-
-  function isSkipButtonVisible(button) {
-    if (!button) return false;
-    const style = window.getComputedStyle(button);
-    const rect = button.getBoundingClientRect();
+  function isElementVisible(element) {
+    if (!element) return false;
+    const style = window.getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
     return (
       style.display !== 'none' &&
       style.visibility !== 'hidden' &&
@@ -27,21 +21,82 @@
     );
   }
 
+  function findSkipButtons() {
+    return [...document.querySelectorAll(SELECTORS.skipButton)].filter(
+      isSkipButtonVisible
+    );
+  }
+
+  function detectAdPod() {
+    const podIndex = document.querySelector(SELECTORS.adPodIndex);
+    if (!podIndex || !isElementVisible(podIndex)) return false;
+    const text = podIndex.textContent?.trim() ?? '';
+    return /\d+\s+(?:of|de)\s+\d+/i.test(text);
+  }
+
+  function detectOverlayAd() {
+    const overlays = document.querySelectorAll(SELECTORS.overlayAd);
+    for (const overlay of overlays) {
+      if (isElementVisible(overlay)) return true;
+    }
+
+    const adModule = document.querySelector(SELECTORS.adModule);
+    if (isElementVisible(adModule) && findSkipButtons().length > 0) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function detectAd() {
+    const player = document.querySelector(SELECTORS.player);
+    const moviePlayer = document.querySelector(SELECTORS.moviePlayer);
+    const adState = moviePlayer?.getAdState?.();
+
+    if (player?.classList.contains('ad-showing')) return true;
+    if (player?.classList.contains('ad-interrupting')) return true;
+    if (adState === 1) return true;
+    if (detectAdPod()) return true;
+    if (detectOverlayAd()) return true;
+    if (findSkipButtons().length > 0) return true;
+
+    return false;
+  }
+
+  function isSkipButtonVisible(button) {
+    return isElementVisible(button);
+  }
+
   function cancelAdPlayback() {
     const player = document.querySelector(SELECTORS.moviePlayer);
-    if (!player || typeof player.cancelPlayback !== 'function') return false;
+    if (!player || typeof player.cancelPlayback !== 'function') return;
     try {
       player.cancelPlayback();
-      return true;
     } catch (_) {
-      return false;
+      /* ignore */
     }
   }
 
-  function seekToAdEnd(video, player) {
-    const duration = video.duration;
-    if (!duration || !isFinite(duration) || duration <= 0) return;
+  function invokeSkipAdApi() {
+    const player = document.querySelector(SELECTORS.moviePlayer);
+    if (!player || typeof player.skipAd !== 'function') return;
+    try {
+      player.skipAd();
+    } catch (_) {
+      /* ignore */
+    }
+  }
 
+  function isSeparateAdVideo(video) {
+    const duration = video?.duration;
+    if (!duration || !isFinite(duration) || duration <= 0) return false;
+    return duration <= MAX_AD_VIDEO_DURATION_SEC;
+  }
+
+  function seekToAdEnd(video, player) {
+    if (!isSeparateAdVideo(video)) return;
+
+    const duration = video.duration;
     if (typeof player?.seekTo === 'function') {
       player.seekTo(duration, true);
     } else {
@@ -49,22 +104,30 @@
     }
   }
 
-  function skipAd() {
-    // YouTube ignores programmatic .click() from extensions (isTrusted check).
-    // cancelPlayback() on the internal player API is the reliable skip path.
-    if (cancelAdPlayback()) return;
+  function clickSkipButtons() {
+    const buttons = findSkipButtons();
+    if (buttons.length === 0) return false;
 
-    const skipBtn = document.querySelector(SELECTORS.skipButton);
-    if (isSkipButtonVisible(skipBtn)) {
-      skipBtn.click();
-      cancelAdPlayback();
-      return;
+    for (const button of buttons) {
+      button.click();
     }
+    return true;
+  }
+
+  function skipAd() {
+    // Layer every skip path — overlay/static ads often ignore cancelPlayback alone.
+    cancelAdPlayback();
+    invokeSkipAdApi();
+    clickSkipButtons();
 
     const video = document.querySelector(SELECTORS.video);
     if (!video) return;
 
     const player = document.querySelector(SELECTORS.moviePlayer);
+
+    // Overlay/static ads reuse the main video — only seek when a short ad clip is playing.
+    if (!isSeparateAdVideo(video)) return;
+
     video.playbackRate = PLAYBACK_RATE;
     seekToAdEnd(video, player);
     cancelAdPlayback();
@@ -80,15 +143,21 @@
   function tick() {
     const adNow = detectAd();
 
-    if (adNow && !isAdActive) {
+    if (adNow) {
+      adGraceUntil = Date.now() + AD_POD_GRACE_MS;
+    }
+
+    const inAdSequence = adNow || Date.now() < adGraceUntil;
+
+    if (inAdSequence && !isAdActive) {
       isAdActive = true;
     }
 
-    if (adNow) {
+    if (inAdSequence) {
       skipAd();
     }
 
-    if (!adNow && isAdActive) {
+    if (!inAdSequence && isAdActive) {
       isAdActive = false;
       restorePlaybackRate();
     }
@@ -159,6 +228,7 @@
       restorePlaybackRate();
       isAdActive = false;
     }
+    adGraceUntil = 0;
 
     stopWaitingForPlayer();
     teardownObserver();

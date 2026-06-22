@@ -81,6 +81,31 @@
       cursor: pointer;
       font-size: 0.875rem;
     }
+    .ytp-ad-player-overlay-layout {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      font-size: 1.25rem;
+    }
+    .ytp-ad-player-overlay-layout.visible {
+      display: flex;
+    }
+    .ytp-ad-pod-index {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 4;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      display: none;
+    }
+    .ytp-ad-pod-index.visible { display: block; }
     .ytp-skip-ad-button[hidden],
     .ytp-ad-skip-button-modern[hidden] {
       display: none;
@@ -114,6 +139,7 @@
     <div class="controls">
       <button type="button" id="toggle-ad">Toggle ad-showing</button>
       <button type="button" id="toggle-skip">Toggle skip button</button>
+      <button type="button" id="toggle-overlay">Toggle overlay ad</button>
       <button type="button" id="reset-video">Reset video</button>
       <button type="button" id="run-detect">Run detectAd()</button>
       <button type="button" id="run-skip">Run skipAd()</button>
@@ -122,7 +148,9 @@
     <div class="player-wrap">
       <div id="movie_player" class="html5-video-player">
         <video class="html5-main-video" src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" controls muted loop></video>
-        <button type="button" class="ytp-skip-ad-button" hidden>Skip Ad</button>
+        <div class="ytp-ad-player-overlay-layout" id="overlay-ad">Static overlay ad</div>
+        <span class="ytp-ad-pod-index" id="pod-index">2 of 2</span>
+        <button type="button" class="ytp-skip-ad-button" hidden>Pular</button>
       </div>
     </div>
 
@@ -141,10 +169,14 @@
     const SELECTORS = {
       player: '.html5-video-player',
       moviePlayer: '#movie_player',
-      skipButton: '.ytp-skip-ad-button, .ytp-ad-skip-button-modern',
+      skipButton: '.ytp-skip-ad-button, .ytp-ad-skip-button-modern, .ytp-ad-skip-button, .ytp-ad-skip-button-slot button, button.ytp-ad-skip-button',
       video: '.html5-main-video',
+      overlayAd: '.ytp-ad-player-overlay-layout, .ytp-ad-action-interstitial, .ytp-ad-image-overlay, .ytp-ad-text-overlay',
+      adModule: '.video-ads.ytp-ad-module',
+      adPodIndex: '.ytp-ad-pod-index',
     };
     const PLAYBACK_RATE = 16;
+    const MAX_AD_VIDEO_DURATION_SEC = 120;
 
     let mockAdState = -1;
     let skipClickCount = 0;
@@ -169,7 +201,16 @@
       const p = document.querySelector(SELECTORS.player);
       const mp = document.querySelector(SELECTORS.moviePlayer);
       const adState = mp?.getAdState?.();
-      return p?.classList.contains('ad-showing') || adState === 1;
+      const overlay = document.querySelector('.ytp-ad-player-overlay-layout.visible');
+      const pod = document.querySelector('.ytp-ad-pod-index.visible');
+      const skipVisible = isSkipButtonVisible(document.querySelector(SELECTORS.skipButton));
+      return (
+        p?.classList.contains('ad-showing') ||
+        adState === 1 ||
+        !!overlay ||
+        !!pod ||
+        skipVisible
+      );
     }
 
     function isSkipButtonVisible(button) {
@@ -231,15 +272,34 @@
       updateStatus();
     });
 
+    document.getElementById('toggle-overlay').addEventListener('click', () => {
+      const overlay = document.getElementById('overlay-ad');
+      const pod = document.getElementById('pod-index');
+      const show = !overlay.classList.contains('visible');
+      overlay.classList.toggle('visible', show);
+      pod.classList.toggle('visible', show);
+      if (show) {
+        skipBtn.removeAttribute('hidden');
+        player.classList.remove('ad-showing');
+        mockAdState = -1;
+      }
+      document.getElementById('toggle-overlay').classList.toggle('active', show);
+      log('overlay ad visible=' + show);
+      updateStatus();
+    });
+
     document.getElementById('reset-video').addEventListener('click', () => {
       player.classList.remove('ad-showing');
       mockAdState = -1;
       skipBtn.setAttribute('hidden', '');
+      document.getElementById('overlay-ad').classList.remove('visible');
+      document.getElementById('pod-index').classList.remove('visible');
       video.playbackRate = 1;
       video.currentTime = 0;
       skipClickCount = 0;
       document.getElementById('toggle-ad').classList.remove('active');
       document.getElementById('toggle-skip').classList.remove('active');
+      document.getElementById('toggle-overlay').classList.remove('active');
       log('reset');
       updateStatus();
     });
