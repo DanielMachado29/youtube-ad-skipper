@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Ad Skipper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="popup">
+    <header class="header">
+      <img class="logo" src="../icons/icon48.png" width="40" height="40" alt="">
+      <div class="header-text">
+        <h1 class="title">Ad Skipper</h1>
+        <p class="subtitle">Pula anúncios automaticamente</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <div class="row">
+        <div class="row-label">
+          <span class="label">Extensão</span>
+          <span id="status" class="status">Ativo</span>
+        </div>
+        <label class="switch" aria-label="Ligar ou desligar extensão">
+          <input type="checkbox" id="toggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <p class="hint">Funciona apenas em abas do YouTube abertas.</p>
+    <p class="credit">Desenvolvido por <a href="https://www.linkedin.com/in/daniel-machado-47326b132/" target="_blank" rel="noopener noreferrer">Daniel Machado</a></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

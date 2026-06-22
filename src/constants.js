@@ -13,3 +13,6 @@ const PLAYBACK_RATE = 16;
 
 /** Polling interval for ad detection fallback (ms). */
 const POLL_INTERVAL_MS = 250;
+
+/** `chrome.storage.local` key for the on/off toggle in the popup. */
+const STORAGE_KEY_ENABLED = 'enabled';

@@ -2,6 +2,7 @@
 
 (function () {
   let isAdActive = false;
+  let isEnabled = true;
   let pollTimerId = null;
   let observer = null;
   let waitTimerId = null;
@@ -153,7 +154,7 @@
     }, POLL_INTERVAL_MS);
   }
 
-  function init() {
+  function shutdown() {
     if (isAdActive) {
       restorePlaybackRate();
       isAdActive = false;
@@ -162,6 +163,12 @@
     stopWaitingForPlayer();
     teardownObserver();
     stopPolling();
+  }
+
+  function init() {
+    if (!isEnabled) return;
+
+    shutdown();
 
     if (!setupObserver()) {
       waitForPlayer();
@@ -171,9 +178,30 @@
     tick();
   }
 
+  function onNavigate() {
+    if (isEnabled) init();
+  }
+
+  function setEnabled(enabled) {
+    isEnabled = enabled;
+    if (enabled) {
+      init();
+    } else {
+      shutdown();
+    }
+  }
+
   function boot() {
-    init();
-    document.addEventListener('yt-navigate-finish', init);
+    chrome.storage.local.get({ [STORAGE_KEY_ENABLED]: true }, (result) => {
+      setEnabled(result[STORAGE_KEY_ENABLED]);
+    });
+
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local' || !changes[STORAGE_KEY_ENABLED]) return;
+      setEnabled(changes[STORAGE_KEY_ENABLED].newValue);
+    });
+
+    document.addEventListener('yt-navigate-finish', onNavigate);
   }
 
   if (document.readyState === 'loading') {
